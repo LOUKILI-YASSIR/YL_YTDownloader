@@ -4,11 +4,26 @@ import os
 import bcrypt
 import yt_dlp
 from tkinter import messagebox, filedialog
-from datetime import datetime
+from datetime import datetime, timedelta
 from PIL import Image, ImageTk
 from io import BytesIO
 import requests
 from threading import Thread
+import webbrowser
+import subprocess
+import shutil
+import time
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.pdfgen import canvas
+from reportlab.platypus.flowables import PageBreak
+import pandas as pd
+from docx import Document
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 class App(ctk.CTk):
     def __init__(self):
@@ -47,16 +62,46 @@ class App(ctk.CTk):
                                          command=self.toggle_theme, width=120)
         self.theme_button.pack(pady=5, padx=10, anchor="ne")
 
-        ctk.CTkLabel(self.login_frame, text="Connexion").pack(pady=12, padx=10)
+        ctk.CTkLabel(self.login_frame, text="Connexion", font=("Helvetica", 18, "bold")).pack(pady=12, padx=10)
         
-        self.username_entry = ctk.CTkEntry(self.login_frame, placeholder_text="Nom d'utilisateur")
-        self.username_entry.pack(pady=12, padx=10)
+        # Cadre pour les entrées
+        entry_frame = ctk.CTkFrame(self.login_frame)
+        entry_frame.pack(pady=12, padx=10, fill='x')
         
-        self.password_entry = ctk.CTkEntry(self.login_frame, placeholder_text="Mot de passe", show="*")
-        self.password_entry.pack(pady=12, padx=10)
+        # Nom d'utilisateur avec validation
+        username_frame = ctk.CTkFrame(entry_frame)
+        username_frame.pack(pady=5, fill='x')
+        ctk.CTkLabel(username_frame, text="Nom d'utilisateur:", width=120).pack(side='left', padx=5)
+        self.username_entry = ctk.CTkEntry(username_frame, placeholder_text="Nom d'utilisateur", width=250)
+        self.username_entry.pack(side='left', padx=5, fill='x', expand=True)
         
-        ctk.CTkButton(self.login_frame, text="Se connecter", command=self.login).pack(pady=12, padx=10)
-        ctk.CTkButton(self.login_frame, text="S'inscrire", command=self.show_register).pack(pady=12, padx=10)
+        # Mot de passe avec validation
+        password_frame = ctk.CTkFrame(entry_frame)
+        password_frame.pack(pady=5, fill='x')
+        ctk.CTkLabel(password_frame, text="Mot de passe:", width=120).pack(side='left', padx=5)
+        self.password_entry = ctk.CTkEntry(password_frame, placeholder_text="Mot de passe", show="*", width=250)
+        self.password_entry.pack(side='left', padx=5, fill='x', expand=True)
+        
+        # Option Se souvenir de moi
+        remember_frame = ctk.CTkFrame(entry_frame)
+        remember_frame.pack(pady=5, fill='x')
+        self.remember_var = ctk.BooleanVar(value=False)
+        self.remember_checkbox = ctk.CTkCheckBox(remember_frame, text="Se souvenir de moi", variable=self.remember_var)
+        self.remember_checkbox.pack(side='left', padx=5)
+        
+        # Boutons
+        button_frame = ctk.CTkFrame(self.login_frame)
+        button_frame.pack(pady=12, padx=10)
+        
+        ctk.CTkButton(button_frame, text="Se connecter", command=self.login, width=120).pack(side='left', padx=5)
+        ctk.CTkButton(button_frame, text="S'inscrire", command=self.show_register, width=120).pack(side='left', padx=5)
+        
+        # Lien mot de passe oublié
+        forgot_frame = ctk.CTkFrame(self.login_frame)
+        forgot_frame.pack(pady=5)
+        forgot_button = ctk.CTkButton(forgot_frame, text="Mot de passe oublié?", command=self.show_forgot_password, 
+                                    fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"))
+        forgot_button.pack()
     
     def setup_register_ui(self):
         self.register_frame = ctk.CTkFrame(self)
@@ -67,19 +112,59 @@ class App(ctk.CTk):
                                          command=self.toggle_theme, width=120)
         self.theme_button.pack(pady=5, padx=10, anchor="ne")
 
-        ctk.CTkLabel(self.register_frame, text="Inscription").pack(pady=12, padx=10)
+        ctk.CTkLabel(self.register_frame, text="Inscription", font=("Helvetica", 18, "bold")).pack(pady=12, padx=10)
         
-        self.reg_username = ctk.CTkEntry(self.register_frame, placeholder_text="Nom d'utilisateur")
-        self.reg_username.pack(pady=12, padx=10)
+        # Cadre pour les entrées
+        entry_frame = ctk.CTkFrame(self.register_frame)
+        entry_frame.pack(pady=12, padx=10, fill='x')
         
-        self.reg_password = ctk.CTkEntry(self.register_frame, placeholder_text="Mot de passe", show="*")
-        self.reg_password.pack(pady=12, padx=10)
+        # Nom d'utilisateur avec validation
+        username_frame = ctk.CTkFrame(entry_frame)
+        username_frame.pack(pady=5, fill='x')
+        ctk.CTkLabel(username_frame, text="Nom d'utilisateur:", width=150).pack(side='left', padx=5)
+        self.reg_username = ctk.CTkEntry(username_frame, placeholder_text="Nom d'utilisateur", width=250)
+        self.reg_username.pack(side='left', padx=5, fill='x', expand=True)
         
-        self.reg_confirm = ctk.CTkEntry(self.register_frame, placeholder_text="Confirmer le mot de passe", show="*")
-        self.reg_confirm.pack(pady=12, padx=10)
+        # Email
+        email_frame = ctk.CTkFrame(entry_frame)
+        email_frame.pack(pady=5, fill='x')
+        ctk.CTkLabel(email_frame, text="Email:", width=150).pack(side='left', padx=5)
+        self.reg_email = ctk.CTkEntry(email_frame, placeholder_text="Email", width=250)
+        self.reg_email.pack(side='left', padx=5, fill='x', expand=True)
         
-        ctk.CTkButton(self.register_frame, text="S'inscrire", command=self.register).pack(pady=12, padx=10)
-        ctk.CTkButton(self.register_frame, text="Retour à la connexion", command=self.show_login).pack(pady=12, padx=10)
+        # Mot de passe avec validation
+        password_frame = ctk.CTkFrame(entry_frame)
+        password_frame.pack(pady=5, fill='x')
+        ctk.CTkLabel(password_frame, text="Mot de passe:", width=150).pack(side='left', padx=5)
+        self.reg_password = ctk.CTkEntry(password_frame, placeholder_text="Mot de passe", show="*", width=250)
+        self.reg_password.pack(side='left', padx=5, fill='x', expand=True)
+        
+        # Confirmation du mot de passe
+        confirm_frame = ctk.CTkFrame(entry_frame)
+        confirm_frame.pack(pady=5, fill='x')
+        ctk.CTkLabel(confirm_frame, text="Confirmer le mot de passe:", width=150).pack(side='left', padx=5)
+        self.reg_confirm = ctk.CTkEntry(confirm_frame, placeholder_text="Confirmer le mot de passe", show="*", width=250)
+        self.reg_confirm.pack(side='left', padx=5, fill='x', expand=True)
+        
+        # Indicateur de force du mot de passe
+        self.password_strength_frame = ctk.CTkFrame(entry_frame)
+        self.password_strength_frame.pack(pady=5, fill='x')
+        ctk.CTkLabel(self.password_strength_frame, text="Force du mot de passe:", width=150).pack(side='left', padx=5)
+        self.password_strength_bar = ctk.CTkProgressBar(self.password_strength_frame, width=250)
+        self.password_strength_bar.pack(side='left', padx=5)
+        self.password_strength_bar.set(0)
+        self.password_strength_label = ctk.CTkLabel(self.password_strength_frame, text="Faible")
+        self.password_strength_label.pack(side='left', padx=5)
+        
+        # Lier l'événement de changement de mot de passe
+        self.reg_password.bind("<KeyRelease>", self.check_password_strength)
+        
+        # Boutons
+        button_frame = ctk.CTkFrame(self.register_frame)
+        button_frame.pack(pady=12, padx=10)
+        
+        ctk.CTkButton(button_frame, text="S'inscrire", command=self.register, width=120).pack(side='left', padx=5)
+        ctk.CTkButton(button_frame, text="Retour à la connexion", command=self.show_login, width=150).pack(side='left', padx=5)
     
     def setup_downloader_ui(self):
         self.downloader_frame = ctk.CTkFrame(self)
@@ -125,16 +210,18 @@ class App(ctk.CTk):
         
         # Sélection de la langue
         ctk.CTkLabel(options_frame, text="Langue:").pack(side='left', padx=5)
+        self.language_values = {"Anglais": "en", "Français": "fr", "Espagnol": "es", "Allemand": "de", "Italien": "it"}
         self.language_menu = ctk.CTkOptionMenu(options_frame, variable=self.transcription_language,
-                                          values=["Anglais", "Français", "Espagnol", "Allemand", "Italien"],
-                                          values_data=["en", "fr", "es", "de", "it"])
+                                          values=list(self.language_values.keys()),
+                                          command=self.on_language_change)
         self.language_menu.pack(side='left', padx=5)
         
         # Sélection du format
         ctk.CTkLabel(options_frame, text="Format:").pack(side='left', padx=5)
+        self.format_values = {"PDF": "pdf", "Word": "docx"}
         self.format_menu_trans = ctk.CTkOptionMenu(options_frame, variable=self.transcription_format,
-                                                values=["PDF", "Word"],
-                                                values_data=["pdf", "docx"])
+                                                values=list(self.format_values.keys()),
+                                                command=self.on_format_change)
         self.format_menu_trans.pack(side='left', padx=5)
         
         # Sélection du format vidéo/audio
@@ -198,19 +285,49 @@ class App(ctk.CTk):
     
     def register(self):
         username = self.reg_username.get()
+        email = self.reg_email.get()
         password = self.reg_password.get()
         confirm = self.reg_confirm.get()
         
+        # Validation des entrées
+        if not username or not email or not password or not confirm:
+            messagebox.showerror("Erreur", "Tous les champs sont obligatoires")
+            return
+            
         if password != confirm:
             messagebox.showerror("Erreur", "Les mots de passe ne correspondent pas")
             return
         
+        # Validation de l'email avec une expression régulière simple
+        import re
+        email_pattern = re.compile(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$')
+        if not email_pattern.match(email):
+            messagebox.showerror("Erreur", "Format d'email invalide")
+            return
+        
+        # Vérification de l'unicité du nom d'utilisateur et de l'email
         if self.users.find_one({"username": username}):
             messagebox.showerror("Erreur", "Ce nom d'utilisateur existe déjà")
             return
+            
+        if self.users.find_one({"email": email}):
+            messagebox.showerror("Erreur", "Cet email est déjà utilisé")
+            return
         
+        # Vérification de la force du mot de passe
+        if len(password) < 8:
+            messagebox.showerror("Erreur", "Le mot de passe doit contenir au moins 8 caractères")
+            return
+        
+        # Hachage et enregistrement
         hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-        self.users.insert_one({"username": username, "password": hashed})
+        self.users.insert_one({
+            "username": username, 
+            "email": email,
+            "password": hashed,
+            "created_at": datetime.now(),
+            "last_login": None
+        })
         messagebox.showinfo("Succès", "Inscription réussie")
         self.show_login()
     
@@ -218,19 +335,278 @@ class App(ctk.CTk):
         username = self.username_entry.get()
         password = self.password_entry.get()
         
-        user = self.users.find_one({"username": username})
+        # Validation des entrées
+        if not username or not password:
+            messagebox.showerror("Erreur", "Veuillez remplir tous les champs")
+            return
+        
+        # Recherche de l'utilisateur par nom d'utilisateur ou email
+        user = self.users.find_one({"$or": [{"username": username}, {"email": username}]})
+        
         if user and bcrypt.checkpw(password.encode('utf-8'), user['password']):
-            self.current_user = username
+            self.current_user = user["username"]
+            
+            # Mise à jour de la dernière connexion
+            self.users.update_one({"_id": user["_id"]}, {"$set": {"last_login": datetime.now()}})
+            
+            # Enregistrement de la session si demandé
+            if hasattr(self, 'remember_var') and self.remember_var.get():
+                self.save_session(user["username"])
+            
             self.login_frame.pack_forget()
             self.setup_downloader_ui()
         else:
             messagebox.showerror("Erreur", "Identifiants invalides")
+            
+    def save_session(self, username):
+        # Enregistrement de la session dans un fichier local
+        session_file = os.path.join(os.getcwd(), ".session")
+        with open(session_file, "w") as f:
+            f.write(username)
+            
+    def load_session(self):
+        # Chargement de la session depuis un fichier local
+        session_file = os.path.join(os.getcwd(), ".session")
+        if os.path.exists(session_file):
+            with open(session_file, "r") as f:
+                username = f.read().strip()
+                if username:
+                    user = self.users.find_one({"username": username})
+                    if user:
+                        self.current_user = username
+                        self.login_frame.pack_forget()
+                        self.setup_downloader_ui()
+                        return True
+        return False
+        
+    def show_forgot_password(self):
+        # Masquer le cadre de connexion
+        self.login_frame.pack_forget()
+        
+        # Créer le cadre de récupération de mot de passe
+        self.forgot_frame = ctk.CTkFrame(self)
+        self.forgot_frame.pack(pady=20, padx=20, fill='both', expand=True)
+        
+        # Bouton de thème
+        self.theme_button = ctk.CTkButton(self.forgot_frame, text="🌙 Mode Sombre" if self.appearance_mode == "light" else "☀️ Mode Clair",
+                                         command=self.toggle_theme, width=120)
+        self.theme_button.pack(pady=5, padx=10, anchor="ne")
+
+        ctk.CTkLabel(self.forgot_frame, text="Récupération de mot de passe", font=("Helvetica", 18, "bold")).pack(pady=12, padx=10)
+        
+        # Instructions
+        ctk.CTkLabel(self.forgot_frame, text="Entrez votre email pour recevoir un code de validation").pack(pady=12, padx=10)
+        
+        # Champ email
+        self.recovery_email = ctk.CTkEntry(self.forgot_frame, placeholder_text="Email", width=300)
+        self.recovery_email.pack(pady=12, padx=10)
+        
+        # Boutons
+        button_frame = ctk.CTkFrame(self.forgot_frame)
+        button_frame.pack(pady=12, padx=10)
+        
+        ctk.CTkButton(button_frame, text="Envoyer", command=self.send_recovery_email, width=120).pack(side='left', padx=5)
+        ctk.CTkButton(button_frame, text="Retour", command=self.back_to_login, width=120).pack(side='left', padx=5)
+    
+    def send_recovery_email(self):
+        email = self.recovery_email.get()
+        
+        if not email:
+            messagebox.showerror("Erreur", "Veuillez entrer votre email")
+            return
+            
+        # Vérifier si l'email existe dans la base de données
+        user = self.users.find_one({"email": email})
+        if not user:
+            messagebox.showerror("Erreur", "Aucun compte associé à cet email")
+            return
+        
+        # Générer un code de validation à 6 chiffres
+        import random
+        validation_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+        
+        # Stocker le code dans la base de données avec une expiration
+        expiration = datetime.now() + timedelta(minutes=15)  # Code valide 15 minutes
+        self.users.update_one({"_id": user["_id"]}, {"$set": {"reset_code": validation_code, "reset_expiry": expiration}})
+        
+        # Dans une application réelle, envoyez un email avec le code
+        # Pour cette démo, nous affichons le code (simulant l'envoi d'email)
+        messagebox.showinfo("Succès", f"Un code de validation a été envoyé à {email}\n\nCode: {validation_code}")
+        
+        # Afficher l'écran de validation du code
+        self.show_code_validation(user["_id"])
+    
+    def show_code_validation(self, user_id):
+        # Masquer le cadre précédent
+        self.forgot_frame.pack_forget()
+        
+        # Créer le cadre de validation du code
+        self.validation_frame = ctk.CTkFrame(self)
+        self.validation_frame.pack(pady=20, padx=20, fill='both', expand=True)
+        
+        # Bouton de thème
+        self.theme_button = ctk.CTkButton(self.validation_frame, text="🌙 Mode Sombre" if self.appearance_mode == "light" else "☀️ Mode Clair",
+                                         command=self.toggle_theme, width=120)
+        self.theme_button.pack(pady=5, padx=10, anchor="ne")
+
+        ctk.CTkLabel(self.validation_frame, text="Validation du code", font=("Helvetica", 18, "bold")).pack(pady=12, padx=10)
+        
+        # Instructions
+        ctk.CTkLabel(self.validation_frame, text="Entrez le code de validation reçu par email").pack(pady=12, padx=10)
+        
+        # Champ code
+        self.validation_code = ctk.CTkEntry(self.validation_frame, placeholder_text="Code à 6 chiffres", width=300)
+        self.validation_code.pack(pady=12, padx=10)
+        
+        # Stocker l'ID utilisateur pour la validation
+        self.reset_user_id = user_id
+        
+        # Boutons
+        button_frame = ctk.CTkFrame(self.validation_frame)
+        button_frame.pack(pady=12, padx=10)
+        
+        ctk.CTkButton(button_frame, text="Valider", command=self.validate_code, width=120).pack(side='left', padx=5)
+        ctk.CTkButton(button_frame, text="Retour", command=self.back_to_forgot, width=120).pack(side='left', padx=5)
+    
+    def validate_code(self):
+        code = self.validation_code.get()
+        
+        if not code or len(code) != 6:
+            messagebox.showerror("Erreur", "Veuillez entrer un code à 6 chiffres")
+            return
+        
+        # Vérifier le code dans la base de données
+        user = self.users.find_one({"_id": self.reset_user_id})
+        if not user or "reset_code" not in user or user["reset_code"] != code:
+            messagebox.showerror("Erreur", "Code de validation incorrect")
+            return
+        
+        # Vérifier si le code n'a pas expiré
+        if datetime.now() > user["reset_expiry"]:
+            messagebox.showerror("Erreur", "Le code de validation a expiré. Veuillez recommencer.")
+            self.back_to_forgot()
+            return
+        
+        # Afficher l'écran de changement de mot de passe
+        self.show_password_reset()
+    
+    def show_password_reset(self):
+        # Masquer le cadre précédent
+        self.validation_frame.pack_forget()
+        
+        # Créer le cadre de réinitialisation du mot de passe
+        self.reset_frame = ctk.CTkFrame(self)
+        self.reset_frame.pack(pady=20, padx=20, fill='both', expand=True)
+        
+        # Bouton de thème
+        self.theme_button = ctk.CTkButton(self.reset_frame, text="🌙 Mode Sombre" if self.appearance_mode == "light" else "☀️ Mode Clair",
+                                         command=self.toggle_theme, width=120)
+        self.theme_button.pack(pady=5, padx=10, anchor="ne")
+
+        ctk.CTkLabel(self.reset_frame, text="Réinitialisation du mot de passe", font=("Helvetica", 18, "bold")).pack(pady=12, padx=10)
+        
+        # Cadre pour les entrées
+        entry_frame = ctk.CTkFrame(self.reset_frame)
+        entry_frame.pack(pady=12, padx=10, fill='x')
+        
+        # Nouveau mot de passe
+        password_frame = ctk.CTkFrame(entry_frame)
+        password_frame.pack(pady=5, fill='x')
+        ctk.CTkLabel(password_frame, text="Nouveau mot de passe:", width=150).pack(side='left', padx=5)
+        self.new_password = ctk.CTkEntry(password_frame, placeholder_text="Nouveau mot de passe", show="*", width=250)
+        self.new_password.pack(side='left', padx=5, fill='x', expand=True)
+        
+        # Confirmation du nouveau mot de passe
+        confirm_frame = ctk.CTkFrame(entry_frame)
+        confirm_frame.pack(pady=5, fill='x')
+        ctk.CTkLabel(confirm_frame, text="Confirmer le mot de passe:", width=150).pack(side='left', padx=5)
+        self.confirm_password = ctk.CTkEntry(confirm_frame, placeholder_text="Confirmer le mot de passe", show="*", width=250)
+        self.confirm_password.pack(side='left', padx=5, fill='x', expand=True)
+        
+        # Boutons
+        button_frame = ctk.CTkFrame(self.reset_frame)
+        button_frame.pack(pady=12, padx=10)
+        
+        ctk.CTkButton(button_frame, text="Réinitialiser", command=self.reset_password, width=120).pack(side='left', padx=5)
+        ctk.CTkButton(button_frame, text="Annuler", command=self.back_to_login, width=120).pack(side='left', padx=5)
+    
+    def reset_password(self):
+        new_password = self.new_password.get()
+        confirm = self.confirm_password.get()
+        
+        # Validation des entrées
+        if not new_password or not confirm:
+            messagebox.showerror("Erreur", "Veuillez remplir tous les champs")
+            return
+            
+        if new_password != confirm:
+            messagebox.showerror("Erreur", "Les mots de passe ne correspondent pas")
+            return
+        
+        # Vérification de la force du mot de passe
+        if len(new_password) < 8:
+            messagebox.showerror("Erreur", "Le mot de passe doit contenir au moins 8 caractères")
+            return
+        
+        # Hachage et mise à jour du mot de passe
+        hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+        self.users.update_one({"_id": self.reset_user_id}, {
+            "$set": {"password": hashed},
+            "$unset": {"reset_code": "", "reset_expiry": ""}
+        })
+        
+        messagebox.showinfo("Succès", "Votre mot de passe a été réinitialisé avec succès")
+        self.back_to_login()
+    
+    def back_to_forgot(self):
+        if hasattr(self, 'validation_frame'):
+            self.validation_frame.pack_forget()
+        self.show_forgot_password()
+        
+    def back_to_login(self):
+        if hasattr(self, 'forgot_frame'):
+            self.forgot_frame.pack_forget()
+        self.setup_login_ui()
+        
+    def check_password_strength(self, event):
+        password = self.reg_password.get()
+        strength = 0
+        feedback = "Faible"
+        
+        if len(password) >= 8:
+            strength += 0.25
+        if any(c.isdigit() for c in password):
+            strength += 0.25
+        if any(c.isupper() for c in password):
+            strength += 0.25
+        if any(not c.isalnum() for c in password):
+            strength += 0.25
+            
+        if strength <= 0.25:
+            feedback = "Très faible"
+        elif strength <= 0.5:
+            feedback = "Faible"
+        elif strength <= 0.75:
+            feedback = "Moyen"
+        else:
+            feedback = "Fort"
+            
+        self.password_strength_bar.set(strength)
+        self.password_strength_label.configure(text=feedback)
     
     def toggle_theme(self):
         self.appearance_mode = "light" if self.appearance_mode == "dark" else "dark"
         ctk.set_appearance_mode(self.appearance_mode)
         if hasattr(self, 'theme_button'):
             self.theme_button.configure(text="🌙 Mode Sombre" if self.appearance_mode == "light" else "☀️ Mode Clair")
+            
+    def on_language_change(self, language_name):
+        # Mettre à jour la valeur de la variable avec le code de langue correspondant
+        self.transcription_language.set(self.language_values[language_name])
+    
+    def on_format_change(self, format_name):
+        # Mettre à jour la valeur de la variable avec le code de format correspondant
+        self.transcription_format.set(self.format_values[format_name])
 
     def logout(self):
         self.current_user = None
@@ -447,53 +823,85 @@ class App(ctk.CTk):
         subprocess.Popen(['explorer', path], shell=True)
     
     def on_content_type_change(self, choice):
+        # Réinitialiser les options précédentes
+        for widget in self.format_frame.master.winfo_children():
+            if isinstance(widget, ctk.CTkFrame) and widget != self.format_frame and widget != self.quality_frame:
+                widget.pack_forget()
+        
+        # Définir les valeurs par défaut pour les sélecteurs
+        url_exists = bool(self.url_entry.get().strip())
+        
         if choice == "Vidéo":
             self.path_entry.delete(0, 'end')
             self.path_entry.insert(0, self.video_path)
-            self.transcription_frame.pack_forget()
             
-            # Afficher les options de format et qualité côte à côte
-            options_frame = ctk.CTkFrame(self.format_frame.master)
-            options_frame.pack(pady=5, padx=10, fill='x')
+            # Afficher le cadre de format
+            self.format_frame.pack(pady=5, padx=10, fill='x')
             
-            format_label = ctk.CTkLabel(options_frame, text="Format:")
-            format_label.pack(side='left', padx=5)
-            self.format_menu.configure(values=["mp4", "webm", "mkv", "avi"])
-            self.format_menu.pack(side='left', padx=5)
+            # Configurer les valeurs du format vidéo
+            video_formats = ["mp4", "webm", "mkv", "avi"]
+            self.format_var.set(video_formats[0] if url_exists else "----")
+            self.format_menu.configure(values=video_formats if url_exists else ["----"])
             
-            quality_label = ctk.CTkLabel(options_frame, text="Qualité:")
-            quality_label.pack(side='left', padx=5)
-            self.quality_menu.pack(side='left', padx=5)
+            # Afficher le cadre de qualité
+            self.quality_frame.pack(pady=5, padx=10, fill='x')
+            
+            # Configurer les valeurs de qualité vidéo
+            video_qualities = ["1080p", "720p", "480p", "360p", "240p", "144p"]
+            self.quality_var.set(video_qualities[0] if url_exists else "----")
+            self.quality_menu.configure(values=video_qualities if url_exists else ["----"])
             
         elif choice == "Audio":
             self.path_entry.delete(0, 'end')
             self.path_entry.insert(0, self.audio_path)
-            self.transcription_frame.pack_forget()
             
-            # Afficher uniquement les options de format
-            options_frame = ctk.CTkFrame(self.format_frame.master)
-            options_frame.pack(pady=5, padx=10, fill='x')
+            # Afficher le cadre de format
+            self.format_frame.pack(pady=5, padx=10, fill='x')
             
-            format_label = ctk.CTkLabel(options_frame, text="Format:")
-            format_label.pack(side='left', padx=5)
-            self.format_menu.configure(values=["mp3", "wav", "aac", "m4a", "opus"])
-            self.format_menu.pack(side='left', padx=5)
+            # Configurer les valeurs du format audio
+            audio_formats = ["mp3", "wav", "aac", "m4a", "opus"]
+            self.format_var.set(audio_formats[0] if url_exists else "----")
+            self.format_menu.configure(values=audio_formats if url_exists else ["----"])
             
+            # Masquer le cadre de qualité
             self.quality_frame.pack_forget()
             
         else:  # Transcription
-            # Afficher les options de langue et format côte à côte
-            options_frame = ctk.CTkFrame(self.format_frame.master)
-            options_frame.pack(pady=5, padx=10, fill='x')
+            # Créer un nouveau cadre pour les options de transcription
+            trans_options_frame = ctk.CTkFrame(self.format_frame.master)
+            trans_options_frame.pack(pady=5, padx=10, fill='x')
             
-            lang_label = ctk.CTkLabel(options_frame, text="Langue:")
-            lang_label.pack(side='left', padx=5)
+            # Sélection de la langue
+            lang_frame = ctk.CTkFrame(trans_options_frame)
+            lang_frame.pack(pady=5, fill='x')
+            ctk.CTkLabel(lang_frame, text="Langue:", width=80).pack(side='left', padx=5)
+            
+            # Configurer les valeurs de langue
+            language_display = list(self.language_values.keys())
+            self.language_menu = ctk.CTkOptionMenu(lang_frame, 
+                                              variable=self.transcription_language,
+                                              values=language_display if url_exists else ["----"],
+                                              command=self.on_language_change)
+            if not url_exists:
+                self.transcription_language.set("----")
             self.language_menu.pack(side='left', padx=5)
             
-            format_label = ctk.CTkLabel(options_frame, text="Format:")
-            format_label.pack(side='left', padx=5)
+            # Sélection du format
+            format_frame = ctk.CTkFrame(trans_options_frame)
+            format_frame.pack(pady=5, fill='x')
+            ctk.CTkLabel(format_frame, text="Format:", width=80).pack(side='left', padx=5)
+            
+            # Configurer les valeurs de format
+            format_display = list(self.format_values.keys())
+            self.format_menu_trans = ctk.CTkOptionMenu(format_frame, 
+                                                    variable=self.transcription_format,
+                                                    values=format_display if url_exists else ["----"],
+                                                    command=self.on_format_change)
+            if not url_exists:
+                self.transcription_format.set("----")
             self.format_menu_trans.pack(side='left', padx=5)
             
+            # Masquer les cadres de format et qualité vidéo/audio
             self.format_frame.pack_forget()
             self.quality_frame.pack_forget()
     
@@ -660,19 +1068,33 @@ class App(ctk.CTk):
         except Exception as e:
             messagebox.showerror("Error", f"Error processing video info: {str(e)}")
     
+    def format_size(self, size_bytes):
+        """Convertit les octets en format lisible (KB, MB, GB)"""
+        if size_bytes == 0 or not size_bytes:
+            return "0B"
+        
+        size_names = ("B", "KB", "MB", "GB", "TB")
+        i = 0
+        while size_bytes >= 1024 and i < len(size_names) - 1:
+            size_bytes /= 1024
+            i += 1
+        
+        return f"{size_bytes:.2f}{size_names[i]}"
+    
     def download(self):
         url = self.url_entry.get()
         if not url:
-            messagebox.showerror("Error", "Please enter a valid YouTube URL")
+            messagebox.showerror("Erreur", "Veuillez entrer une URL YouTube valide")
             return
         
         if not self.quality_var.get() or not hasattr(self, '_format_info'):
-            messagebox.showerror("Error", "Please check the URL first")
+            messagebox.showerror("Erreur", "Veuillez d'abord vérifier l'URL")
             return
 
-        # Show progress frame
+        # Afficher le cadre de progression
         self.progress_frame.pack(pady=5, padx=10, fill='x')
         self.progress_bar.pack(pady=5, fill='x')
+        self.progress_label.configure(text="Préparation du téléchargement...")
         self.progress_label.pack(pady=2)
         self.progress_bar.set(0)
         
