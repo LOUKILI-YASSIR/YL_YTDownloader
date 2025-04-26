@@ -1157,10 +1157,6 @@ class App(ctk.CTk):
             messagebox.showerror("Erreur", "Veuillez entrer une URL YouTube valide")
             return
 
-        # Hide info frame at the start of verification
-        if hasattr(self, 'info_frame'):
-            self.info_frame.pack_forget()
-
         # Show progress frame and reset
         self.progress_frame.pack(pady=5, padx=10, fill='x')
         self.progress_bar.pack(pady=5, fill='x')
@@ -1177,6 +1173,10 @@ class App(ctk.CTk):
         
         # Start time for elapsed time calculation
         start_time = time.time()
+        
+        # Masquer le bloc d'information vidéo s'il existe déjà
+        if hasattr(self, 'video_info_frame') and self.video_info_frame.winfo_exists():
+            self.video_info_frame.pack_forget()
         
         def update_progress(step, total_steps=6):
             progress = step / total_steps
@@ -1281,11 +1281,8 @@ class App(ctk.CTk):
                     # Process and display video info
                     self.after(0, lambda: self.process_video_info(info))
                     
-                    # Show success message and info frame
-                    self.after(1000, lambda: [
-                        messagebox.showinfo("Succès", "URL vérifiée avec succès. Les informations de la vidéo sont affichées ci-dessous."),
-                        self.info_frame.pack(pady=10, padx=10, fill='both', expand=True)  # Show info frame on success
-                    ])
+                    # Show success message
+                    self.after(1000, lambda: messagebox.showinfo("Succès", "URL vérifiée avec succès. Les informations de la vidéo sont affichées ci-dessous."))
                     
             except Exception as e:
                 error_message = f"Impossible de récupérer les informations de la vidéo : {str(e)}\nVérifiez que l'URL est correcte et que votre connexion internet fonctionne."
@@ -1301,117 +1298,98 @@ class App(ctk.CTk):
             for widget in self.info_frame.winfo_children():
                 widget.destroy()
             
-            # Create main container with modern styling
-            info_container = ctk.CTkFrame(self.info_frame, corner_radius=15)
-            info_container.pack(pady=10, padx=10, fill='both', expand=True)
+            # Ensure info_frame is visible
+            self.info_frame.pack(pady=10, padx=10, fill='both', expand=True)
             
-            # Create two columns layout
-            content_frame = ctk.CTkFrame(info_container, fg_color="transparent")
-            content_frame.pack(pady=10, padx=10, fill='both', expand=True)
+            # Create a frame for video information with a border and background
+            info_container = ctk.CTkFrame(self.info_frame, corner_radius=10)
+            info_container.pack(pady=10, padx=10, fill='x')
             
-            # Left column for thumbnail
-            left_column = ctk.CTkFrame(content_frame, fg_color="transparent")
-            left_column.pack(side='left', padx=10, pady=10, fill='y')
+            # Title bar for the info container
+            title_bar = ctk.CTkFrame(info_container, fg_color="transparent")
+            title_bar.pack(pady=(10, 5), padx=10, fill='x')
+            ctk.CTkLabel(title_bar, text="✅ Vidéo vérifiée", font=("Helvetica", 16, "bold")).pack(side='left')
+            
+            # Content container
+            content_container = ctk.CTkFrame(info_container, fg_color="transparent")
+            content_container.pack(pady=5, padx=10, fill='x')
+            
+            # Left side - Thumbnail
+            left_frame = ctk.CTkFrame(content_container, fg_color="transparent")
+            left_frame.pack(side='left', padx=10)
             
             # Display thumbnail
             if 'thumbnail' in info:
                 try:
                     response = requests.get(info['thumbnail'])
                     img = Image.open(BytesIO(response.content))
-                    img = img.resize((320, 180), Image.Resampling.LANCZOS)
-                    photo = ctk.CTkImage(light_image=img, dark_image=img, size=(320, 180))
-                    thumbnail_label = ctk.CTkLabel(left_column, image=photo, text="")
+                    img = img.resize((240, 180), Image.Resampling.LANCZOS)
+                    photo = ctk.CTkImage(light_image=img, dark_image=img, size=(240, 180))
+                    thumbnail_label = ctk.CTkLabel(left_frame, image=photo, text="")
                     thumbnail_label.pack()
                 except Exception as e:
-                    ctk.CTkLabel(left_column, text="🎬 Pas de miniature",
-                               width=320, height=180).pack()
+                    ctk.CTkLabel(left_frame, text="🎬 Pas de miniature",
+                               width=240, height=180).pack()
             
-            # Right column for video information
-            right_column = ctk.CTkFrame(content_frame, fg_color="transparent")
-            right_column.pack(side='left', padx=10, pady=10, fill='both', expand=True)
+            # Right side - Information
+            right_frame = ctk.CTkFrame(content_container, fg_color="transparent")
+            right_frame.pack(side='left', padx=10, fill='x', expand=True)
             
             # Title with ellipsis if too long
             title = info.get('title', 'Unknown Title')
             if len(title) > 50:
                 title = title[:47] + "..."
-            ctk.CTkLabel(right_column, 
+            ctk.CTkLabel(right_frame, 
                         text=title,
-                        font=("Helvetica", 18, "bold")).pack(anchor='w', pady=(0, 10))
-            
-            # Create scrollable frame for detailed info
-            scroll_frame = ctk.CTkScrollableFrame(right_column, fg_color="transparent")
-            scroll_frame.pack(fill='both', expand=True)
-            
-            # Channel info
-            channel_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-            channel_frame.pack(fill='x', pady=2)
-            ctk.CTkLabel(channel_frame, text="📺 Chaîne:", font=("Helvetica", 14, "bold")).pack(side='left', padx=(0, 5))
-            ctk.CTkLabel(channel_frame, text=info.get('uploader', 'Unknown'), font=("Helvetica", 14)).pack(side='left')
+                        font=("Helvetica", 16, "bold")).pack(anchor='w')
             
             # Duration
             duration = info.get('duration')
             if duration:
                 minutes = duration // 60
                 seconds = duration % 60
-                hours = minutes // 60
-                minutes = minutes % 60
-                duration_text = f"{hours:02d}:{minutes:02d}:{seconds:02d}" if hours > 0 else f"{minutes:02d}:{seconds:02d}"
-                duration_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-                duration_frame.pack(fill='x', pady=2)
-                ctk.CTkLabel(duration_frame, text="⏱️ Durée:", font=("Helvetica", 14, "bold")).pack(side='left', padx=(0, 5))
-                ctk.CTkLabel(duration_frame, text=duration_text, font=("Helvetica", 14)).pack(side='left')
+                ctk.CTkLabel(right_frame, 
+                           text=f"⏱️ Durée: {minutes}:{seconds:02d}",
+                           font=("Helvetica", 14)).pack(anchor='w')
             
-            # View count
+            # Channel info
+            if info.get('channel'):
+                ctk.CTkLabel(right_frame,
+                           text=f"📺 Chaîne: {info['channel']}",
+                           font=("Helvetica", 14)).pack(anchor='w')
+            
+            # View count if available
             if info.get('view_count'):
                 view_count = "{:,}".format(info['view_count']).replace(',', ' ')
-                views_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-                views_frame.pack(fill='x', pady=2)
-                ctk.CTkLabel(views_frame, text="👁️ Vues:", font=("Helvetica", 14, "bold")).pack(side='left', padx=(0, 5))
-                ctk.CTkLabel(views_frame, text=view_count, font=("Helvetica", 14)).pack(side='left')
+                ctk.CTkLabel(right_frame,
+                           text=f"👁️ Vues: {view_count}",
+                           font=("Helvetica", 14)).pack(anchor='w')
             
-            # Upload date
+            # Upload date if available
             if info.get('upload_date'):
                 upload_date = datetime.strptime(info['upload_date'], '%Y%m%d').strftime('%d/%m/%Y')
-                date_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-                date_frame.pack(fill='x', pady=2)
-                ctk.CTkLabel(date_frame, text="📅 Date:", font=("Helvetica", 14, "bold")).pack(side='left', padx=(0, 5))
-                ctk.CTkLabel(date_frame, text=upload_date, font=("Helvetica", 14)).pack(side='left')
+                ctk.CTkLabel(right_frame,
+                           text=f"📅 Date: {upload_date}",
+                           font=("Helvetica", 14)).pack(anchor='w')
             
-            # Likes (if available)
-            if info.get('like_count'):
-                like_count = "{:,}".format(info['like_count']).replace(',', ' ')
-                likes_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-                likes_frame.pack(fill='x', pady=2)
-                ctk.CTkLabel(likes_frame, text="👍 Likes:", font=("Helvetica", 14, "bold")).pack(side='left', padx=(0, 5))
-                ctk.CTkLabel(likes_frame, text=like_count, font=("Helvetica", 14)).pack(side='left')
+            # Add download button directly in the info frame
+            download_frame = ctk.CTkFrame(info_container, fg_color="transparent")
+            download_frame.pack(pady=(10, 15), padx=10, fill='x')
             
-            # Description (truncated)
-            if info.get('description'):
-                desc_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-                desc_frame.pack(fill='x', pady=(10, 2))
-                ctk.CTkLabel(desc_frame, text="📝 Description:", font=("Helvetica", 14, "bold")).pack(anchor='w')
-                
-                description = info['description']
-                if len(description) > 200:
-                    description = description[:197] + "..."
-                desc_text = ctk.CTkLabel(desc_frame, text=description, font=("Helvetica", 12), wraplength=400, justify="left")
-                desc_text.pack(anchor='w', pady=5)
-            
-            # Download button at the bottom
-            button_frame = ctk.CTkFrame(info_container, fg_color="transparent")
-            button_frame.pack(pady=10, fill='x')
-            
-            download_button = ctk.CTkButton(button_frame,
+            download_button = ctk.CTkButton(download_frame,
                                           text="📥 Télécharger",
                                           command=self.download,
                                           width=200,
                                           height=45,
                                           corner_radius=10,
                                           font=("Helvetica", 16, "bold"))
-            download_button.pack(pady=10)
+            download_button.pack(side='right', padx=10)
             
-            # Update format and quality options
+            # Update options based on content type
             self.update_format_and_quality_options()
+            
+            # Make the info frame visible
+            self.info_frame.pack(pady=10, padx=10, fill='x')
             
         except Exception as e:
             messagebox.showerror("Error", f"Error processing video info: {str(e)}")
@@ -1440,15 +1418,8 @@ class App(ctk.CTk):
             self.format_menu.configure(values=format_values)
             self.format_var.set(format_values[0])
             
-            # Process video formats to avoid duplicates
-            unique_qualities = {}
-            for f in self._video_formats:
-                height = f['height']
-                if height not in unique_qualities or f['filesize'] > unique_qualities[height]['filesize']:
-                    unique_qualities[height] = f
-            
-            # Update quality menu with unique video qualities
-            qualities = [f"{f['height']}p ({f['filesize']/1024/1024:.1f}MB)" for f in unique_qualities.values()]
+            # Update quality menu with video qualities
+            qualities = [f"{f['height']}p ({f['tbr']:.1f}Mbps)" for f in self._video_formats]
             self.quality_menu.configure(values=qualities)
             self.quality_var.set(qualities[0] if qualities else "---")
             
@@ -1458,15 +1429,8 @@ class App(ctk.CTk):
             self.format_menu.configure(values=format_values)
             self.format_var.set(format_values[0])
             
-            # Process audio formats to avoid duplicates
-            unique_qualities = {}
-            for f in self._audio_formats:
-                abr = f['abr']
-                if abr not in unique_qualities or f['filesize'] > unique_qualities[abr]['filesize']:
-                    unique_qualities[abr] = f
-            
-            # Update quality menu with unique audio qualities
-            qualities = [f"{int(f['abr'])}kbps ({f['filesize']/1024/1024:.1f}MB)" for f in unique_qualities.values()]
+            # Update quality menu with audio qualities
+            qualities = [f"{int(f['abr'])}kbps" for f in self._audio_formats]
             self.quality_menu.configure(values=qualities)
             self.quality_var.set(qualities[0] if qualities else "---")
         
@@ -1749,6 +1713,8 @@ class App(ctk.CTk):
         self.progress_bar = ctk.CTkProgressBar(self.progress_frame, height=15, corner_radius=5)
         self.progress_bar.pack(pady=5, fill='x')
         
+        # Créer un espace pour le bloc d'information vidéo (sera rempli lors de la vérification de l'URL)
+        
         # Detailed progress information
         self.progress_details_frame = ctk.CTkFrame(self.progress_frame, fg_color="transparent")
         self.progress_details_frame.pack(fill='x')
@@ -1829,10 +1795,9 @@ class App(ctk.CTk):
                                     corner_radius=10)
         browse_button.pack(side='left', padx=5)
         
-        # Video info frame - Now below options (hidden by default)
+        # Video info frame - Now below options
         self.info_frame = ctk.CTkFrame(main_container, fg_color="transparent")
         self.info_frame.pack(pady=10, padx=10, fill='both', expand=True)
-        self.info_frame.pack_forget()  # Hide by default
         
         # Progress frame
         self.progress_frame = ctk.CTkFrame(self.download_tab, fg_color="transparent")
