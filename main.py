@@ -1281,6 +1281,9 @@ class App(ctk.CTk):
                     # Process and display video info
                     self.after(0, lambda: self.process_video_info(info))
                     
+                    # Show success message
+                    self.after(1000, lambda: messagebox.showinfo("Succès", "URL vérifiée avec succès. Les informations de la vidéo sont affichées ci-dessous."))
+                    
             except Exception as e:
                 error_message = f"Impossible de récupérer les informations de la vidéo : {str(e)}\nVérifiez que l'URL est correcte et que votre connexion internet fonctionne."
                 self.after(0, lambda: messagebox.showerror("Erreur", error_message))
@@ -1294,6 +1297,9 @@ class App(ctk.CTk):
             # Clear previous info
             for widget in self.info_frame.winfo_children():
                 widget.destroy()
+            
+            # Ensure info_frame is visible
+            self.info_frame.pack(pady=10, padx=10, fill='both', expand=True)
             
             # Create a frame for video information with a border and background
             info_container = ctk.CTkFrame(self.info_frame, corner_radius=10)
