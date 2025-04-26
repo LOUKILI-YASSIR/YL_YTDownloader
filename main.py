@@ -995,76 +995,161 @@ class App(ctk.CTk):
         elif d['status'] == 'finished':
             self.progress_frame.pack_forget()
     
-    def display_video_info(self, video_info):
-        # Clear previous content
-        for widget in self.info_frame.winfo_children():
-            widget.destroy()
+    def display_video_info(self, info):
+        # Créer un cadre pour les informations de la vidéo
+        self.video_info_frame = ctk.CTkFrame(self.info_frame, corner_radius=15)
+        self.video_info_frame.pack(pady=15, padx=15, fill='both', expand=True)
         
-        # Create a card-like frame for video info
-        info_card = ctk.CTkFrame(self.info_frame, corner_radius=15)
-        info_card.pack(pady=10, padx=10, fill='both', expand=True)
+        # Titre de la section
+        title_frame = ctk.CTkFrame(self.video_info_frame, fg_color="transparent")
+        title_frame.pack(pady=(10, 5), padx=10, fill='x')
+        ctk.CTkLabel(title_frame, text="📋 Informations de la vidéo", font=("Helvetica", 20, "bold")).pack(anchor='w')
         
-        # Video thumbnail
-        thumbnail_frame = ctk.CTkFrame(info_card, fg_color="transparent")
-        thumbnail_frame.pack(pady=10, padx=10, fill='x')
+        # Conteneur principal avec deux colonnes
+        content_frame = ctk.CTkFrame(self.video_info_frame, fg_color="transparent")
+        content_frame.pack(pady=10, padx=10, fill='both', expand=True)
         
-        try:
-            # Try to load and display thumbnail
-            thumbnail_url = video_info.get('thumbnail', '')
-            if thumbnail_url:
+        # Colonne gauche pour la miniature
+        left_column = ctk.CTkFrame(content_frame, fg_color="transparent")
+        left_column.pack(side='left', padx=10, pady=10, fill='y')
+        
+        # Télécharger et afficher la miniature
+        thumbnail_url = info.get('thumbnail')
+        if thumbnail_url:
+            try:
                 response = requests.get(thumbnail_url)
-                image = Image.open(BytesIO(response.content))
-                image = image.resize((320, 180), Image.Resampling.LANCZOS)
-                photo = ImageTk.PhotoImage(image)
+                img_data = BytesIO(response.content)
+                img = Image.open(img_data)
                 
-                thumbnail_label = ctk.CTkLabel(thumbnail_frame, image=photo, text="")
-                thumbnail_label.image = photo
-                thumbnail_label.pack()
-        except Exception as e:
-            print(f"Error loading thumbnail: {e}")
+                # Redimensionner l'image tout en conservant les proportions
+                width, height = img.size
+                max_width = 320
+                if width > max_width:
+                    ratio = max_width / width
+                    new_height = int(height * ratio)
+                    img = img.resize((max_width, new_height), Image.LANCZOS)
+                
+                # Convertir en CTkImage
+                thumbnail = ctk.CTkImage(img, size=img.size)
+                thumbnail_label = ctk.CTkLabel(left_column, image=thumbnail, text="")
+                thumbnail_label.pack(padx=10, pady=10)
+            except Exception as e:
+                ctk.CTkLabel(left_column, text="Impossible de charger la miniature", font=("Helvetica", 12)).pack(padx=10, pady=10)
         
-        # Video details
-        details_frame = ctk.CTkFrame(info_card, fg_color="transparent")
-        details_frame.pack(pady=10, padx=10, fill='x')
+        # Colonne droite pour les informations textuelles
+        right_column = ctk.CTkFrame(content_frame, fg_color="transparent")
+        right_column.pack(side='left', padx=10, pady=10, fill='both', expand=True)
         
-        # Title with enhanced styling
-        title_frame = ctk.CTkFrame(details_frame, fg_color="transparent")
-        title_frame.pack(fill='x', pady=5)
-        ctk.CTkLabel(title_frame, 
-                    text=video_info.get('title', 'Unknown Title'),
-                    font=("Helvetica", 18, "bold"),
-                    wraplength=600).pack(anchor='w')
+        # Créer un cadre défilable pour les informations avec une hauteur plus grande
+        scrollable_frame = ctk.CTkScrollableFrame(right_column, height=400)
+        scrollable_frame.pack(fill='both', expand=True, padx=5, pady=5)
         
-        # Channel info
-        channel_frame = ctk.CTkFrame(details_frame, fg_color="transparent")
-        channel_frame.pack(fill='x', pady=5)
-        ctk.CTkLabel(channel_frame,
-                    text=f"👤 {video_info.get('uploader', 'Unknown Channel')}",
-                    font=("Helvetica", 14)).pack(anchor='w')
+        # Titre de la vidéo
+        title = info.get('title', 'Titre inconnu')
+        title_label = ctk.CTkLabel(scrollable_frame, text=title, font=("Helvetica", 18, "bold"), wraplength=500)
+        title_label.pack(anchor='w', pady=(0, 10), fill='x')
         
-        # Duration and views
-        stats_frame = ctk.CTkFrame(details_frame, fg_color="transparent")
-        stats_frame.pack(fill='x', pady=5)
+        # Informations principales
+        info_grid = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
+        info_grid.pack(fill='x', pady=5)
         
-        duration = video_info.get('duration_string', 'Unknown')
-        views = video_info.get('view_count', 'Unknown')
+        # Chaîne
+        channel_frame = ctk.CTkFrame(info_grid, fg_color="transparent")
+        channel_frame.pack(fill='x', pady=2)
+        ctk.CTkLabel(channel_frame, text="📺 Chaîne:", font=("Helvetica", 14, "bold")).pack(side='left', padx=(0, 5))
+        ctk.CTkLabel(channel_frame, text=info.get('uploader', 'Inconnu'), font=("Helvetica", 14)).pack(side='left')
         
-        ctk.CTkLabel(stats_frame,
-                    text=f"⏱️ {duration} | 👁️ {views} views",
-                    font=("Helvetica", 14)).pack(anchor='w')
+        # Abonnés (cette information n'est pas directement disponible via yt-dlp)
+        # Nous pouvons afficher un placeholder ou omettre cette information
         
-        # Download button with enhanced styling
-        download_frame = ctk.CTkFrame(info_card, fg_color="transparent")
-        download_frame.pack(pady=20, padx=10, fill='x')
+        # Vues
+        views_frame = ctk.CTkFrame(info_grid, fg_color="transparent")
+        views_frame.pack(fill='x', pady=2)
+        ctk.CTkLabel(views_frame, text="👁️ Vues:", font=("Helvetica", 14, "bold")).pack(side='left', padx=(0, 5))
+        view_count = info.get('view_count', 0)
+        formatted_views = f"{view_count:,}".replace(',', ' ')
+        ctk.CTkLabel(views_frame, text=formatted_views, font=("Helvetica", 14)).pack(side='left')
         
-        download_button = ctk.CTkButton(download_frame,
-                                      text="⬇️ Télécharger",
-                                      command=lambda: self.download(video_info),
-                                      height=50,
+        # Durée
+        duration_frame = ctk.CTkFrame(info_grid, fg_color="transparent")
+        duration_frame.pack(fill='x', pady=2)
+        ctk.CTkLabel(duration_frame, text="⏱️ Durée:", font=("Helvetica", 14, "bold")).pack(side='left', padx=(0, 5))
+        
+        duration = info.get('duration', 0)
+        if duration:
+            minutes, seconds = divmod(int(duration), 60)
+            hours, minutes = divmod(minutes, 60)
+            if hours > 0:
+                duration_text = f"{hours}h {minutes}m {seconds}s"
+            else:
+                duration_text = f"{minutes}m {seconds}s"
+        else:
+            duration_text = "Inconnue"
+        
+        ctk.CTkLabel(duration_frame, text=duration_text, font=("Helvetica", 14)).pack(side='left')
+        
+        # Date de publication
+        upload_date_frame = ctk.CTkFrame(info_grid, fg_color="transparent")
+        upload_date_frame.pack(fill='x', pady=2)
+        ctk.CTkLabel(upload_date_frame, text="📅 Date:", font=("Helvetica", 14, "bold")).pack(side='left', padx=(0, 5))
+        
+        upload_date = info.get('upload_date', '')
+        if upload_date and len(upload_date) == 8:
+            year = upload_date[:4]
+            month = upload_date[4:6]
+            day = upload_date[6:8]
+            formatted_date = f"{day}/{month}/{year}"
+        else:
+            formatted_date = "Inconnue"
+        
+        ctk.CTkLabel(upload_date_frame, text=formatted_date, font=("Helvetica", 14)).pack(side='left')
+        
+        # Catégorie
+        category_frame = ctk.CTkFrame(info_grid, fg_color="transparent")
+        category_frame.pack(fill='x', pady=2)
+        ctk.CTkLabel(category_frame, text="🏷️ Catégorie:", font=("Helvetica", 14, "bold")).pack(side='left', padx=(0, 5))
+        ctk.CTkLabel(category_frame, text=info.get('categories', ['Inconnue'])[0] if info.get('categories') else "Inconnue", font=("Helvetica", 14)).pack(side='left')
+        
+        # Likes
+        likes_frame = ctk.CTkFrame(info_grid, fg_color="transparent")
+        likes_frame.pack(fill='x', pady=2)
+        ctk.CTkLabel(likes_frame, text="👍 Likes:", font=("Helvetica", 14, "bold")).pack(side='left', padx=(0, 5))
+        like_count = info.get('like_count', 0)
+        formatted_likes = f"{like_count:,}".replace(',', ' ') if like_count else "Inconnu"
+        ctk.CTkLabel(likes_frame, text=formatted_likes, font=("Helvetica", 14)).pack(side='left')
+        
+        # Description (tronquée)
+        description_frame = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
+        description_frame.pack(fill='x', pady=10)
+        ctk.CTkLabel(description_frame, text="📝 Description:", font=("Helvetica", 14, "bold")).pack(anchor='w')
+        
+        description = info.get('description', 'Aucune description disponible')
+        if description:
+            # Limiter la description à 200 caractères
+            if len(description) > 200:
+                description = description[:200] + "..."
+            
+            desc_label = ctk.CTkLabel(description_frame, text=description, font=("Helvetica", 12), wraplength=500, justify="left")
+            desc_label.pack(anchor='w', pady=5, fill='x')
+        
+        # Bouton de téléchargement centré en bas
+        button_frame = ctk.CTkFrame(self.video_info_frame, fg_color="transparent")
+        button_frame.pack(pady=15, fill='x')
+        
+        download_button = ctk.CTkButton(button_frame,
+                                      text="Télécharger",
+                                      command=self.download,
                                       width=200,
+                                      height=50,
                                       corner_radius=10,
                                       font=("Helvetica", 16, "bold"))
-        download_button.pack(pady=10)
+        download_button.pack(pady=10, padx=10)
+        
+        # Stocker l'ID de la vidéo pour le téléchargement
+        self.current_video_id = info.get('id')
+        
+        # Mettre à jour les menus de format et qualité
+        self.update_format_and_quality_options()
     
     def check_url(self):
         url = self.url_entry.get()
@@ -1561,7 +1646,7 @@ class App(ctk.CTk):
         self.setup_profile_tab()
     
     def setup_download_tab(self):
-        # Main container with vertical layout
+        # Main container with vertical layout - Enhanced modern design
         main_container = ctk.CTkFrame(self.download_tab)
         main_container.pack(pady=10, padx=10, fill='both', expand=True)
         
@@ -1575,27 +1660,41 @@ class App(ctk.CTk):
         # Section title with enhanced styling
         title_frame = ctk.CTkFrame(top_section, fg_color="transparent")
         title_frame.pack(pady=(10, 15), fill='x')
-        ctk.CTkLabel(title_frame, text="🎬 YouTube Downloader", font=("Helvetica", 26, "bold")).pack(anchor='w', padx=10)
+        ctk.CTkLabel(title_frame, text="📥 Téléchargement", font=("Helvetica", 22, "bold")).pack(anchor='w', padx=10)
         
         # URL input with improved styling and paste functionality
         url_frame = ctk.CTkFrame(top_section, fg_color="transparent")
         url_frame.pack(pady=(5, 10), fill='x', padx=10)
         
-        self.url_entry = ctk.CTkEntry(url_frame, 
-                                    placeholder_text="Write your YouTube video link ....",
-                                    height=50,
-                                    width=600,
-                                    corner_radius=20,
-                                    font=("Helvetica", 20, "bold"))
+        url_label_frame = ctk.CTkFrame(url_frame, fg_color="transparent")
+        url_label_frame.pack(anchor='w', pady=5)
+        ctk.CTkLabel(url_label_frame, text="🔗", font=("Helvetica", 18)).pack(side='left', padx=(0, 5))
+        ctk.CTkLabel(url_label_frame, text="URL YouTube", font=("Helvetica", 16, "bold")).pack(side='left')
+        
+        url_input_frame = ctk.CTkFrame(url_frame, fg_color="transparent")
+        url_input_frame.pack(fill='x')
+        self.url_entry = ctk.CTkEntry(url_input_frame, 
+                                    placeholder_text="Collez l'URL de la vidéo YouTube ici",
+                                    height=45,
+                                    corner_radius=10)
         self.url_entry.pack(side='left', fill='x', expand=True, padx=(0, 5))
         
-        check_button = ctk.CTkButton(url_frame,
-                                   text="Download",
+        # Paste button for easy URL pasting
+        paste_button = ctk.CTkButton(url_input_frame,
+                                   text="📋",
+                                   command=lambda: self.url_entry.insert(0, self.clipboard_get()),
+                                   width=45,
+                                   height=45,
+                                   corner_radius=10)
+        paste_button.pack(side='left', padx=5)
+        
+        check_button = ctk.CTkButton(url_input_frame,
+                                   text="Vérifier",
                                    command=self.check_url,
-                                   height=50,
-                                   width=200,
+                                   width=100,
+                                   height=45,
                                    corner_radius=10,
-                                   font=("Helvetica", 20, "bold"))
+                                   font=("Helvetica", 12, "bold"))
         check_button.pack(side='right')
         
         # Progress frame with enhanced styling (hidden initially)
@@ -1613,6 +1712,8 @@ class App(ctk.CTk):
         
         self.progress_bar = ctk.CTkProgressBar(self.progress_frame, height=15, corner_radius=5)
         self.progress_bar.pack(pady=5, fill='x')
+        
+        # Créer un espace pour le bloc d'information vidéo (sera rempli lors de la vérification de l'URL)
         
         # Detailed progress information
         self.progress_details_frame = ctk.CTkFrame(self.progress_frame, fg_color="transparent")
