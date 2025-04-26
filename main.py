@@ -1157,6 +1157,10 @@ class App(ctk.CTk):
             messagebox.showerror("Erreur", "Veuillez entrer une URL YouTube valide")
             return
 
+        # Hide info frame at the start of verification
+        if hasattr(self, 'info_frame'):
+            self.info_frame.pack_forget()
+
         # Show progress frame and reset
         self.progress_frame.pack(pady=5, padx=10, fill='x')
         self.progress_bar.pack(pady=5, fill='x')
@@ -1173,10 +1177,6 @@ class App(ctk.CTk):
         
         # Start time for elapsed time calculation
         start_time = time.time()
-        
-        # Masquer le bloc d'information vidéo s'il existe déjà
-        if hasattr(self, 'video_info_frame') and self.video_info_frame.winfo_exists():
-            self.video_info_frame.pack_forget()
         
         def update_progress(step, total_steps=6):
             progress = step / total_steps
@@ -1281,8 +1281,11 @@ class App(ctk.CTk):
                     # Process and display video info
                     self.after(0, lambda: self.process_video_info(info))
                     
-                    # Show success message
-                    self.after(1000, lambda: messagebox.showinfo("Succès", "URL vérifiée avec succès. Les informations de la vidéo sont affichées ci-dessous."))
+                    # Show success message and info frame
+                    self.after(1000, lambda: [
+                        messagebox.showinfo("Succès", "URL vérifiée avec succès. Les informations de la vidéo sont affichées ci-dessous."),
+                        self.info_frame.pack(pady=10, padx=10, fill='both', expand=True)  # Show info frame on success
+                    ])
                     
             except Exception as e:
                 error_message = f"Impossible de récupérer les informations de la vidéo : {str(e)}\nVérifiez que l'URL est correcte et que votre connexion internet fonctionne."
@@ -1713,8 +1716,6 @@ class App(ctk.CTk):
         self.progress_bar = ctk.CTkProgressBar(self.progress_frame, height=15, corner_radius=5)
         self.progress_bar.pack(pady=5, fill='x')
         
-        # Créer un espace pour le bloc d'information vidéo (sera rempli lors de la vérification de l'URL)
-        
         # Detailed progress information
         self.progress_details_frame = ctk.CTkFrame(self.progress_frame, fg_color="transparent")
         self.progress_details_frame.pack(fill='x')
@@ -1795,9 +1796,10 @@ class App(ctk.CTk):
                                     corner_radius=10)
         browse_button.pack(side='left', padx=5)
         
-        # Video info frame - Now below options
+        # Video info frame - Now below options (hidden by default)
         self.info_frame = ctk.CTkFrame(main_container, fg_color="transparent")
         self.info_frame.pack(pady=10, padx=10, fill='both', expand=True)
+        self.info_frame.pack_forget()  # Hide by default
         
         # Progress frame
         self.progress_frame = ctk.CTkFrame(self.download_tab, fg_color="transparent")
