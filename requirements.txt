@@ -2,15 +2,7 @@ customtkinter
 pymongo
 bcrypt
 yt-dlp
-Pillow
+pillow
 requests
-python-jose
-python-dotenv
-google-auth
-pyotp
-qrcode
-matplotlib
-pandas
 reportlab
-python-magic
-ffmpeg-python
+pandas
