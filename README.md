@@ -1,79 +1,122 @@
-# Téléchargeur YouTube
+# YouTube Downloader Pro
 
-Une application de bureau moderne pour télécharger des contenus YouTube avec des fonctionnalités avancées.
+Une application moderne et complète pour télécharger des vidéos YouTube et autres plateformes, avec gestion des utilisateurs, sécurité renforcée et interface graphique intuitive.
 
-## Fonctionnalités
+## Fonctionnalités principales
 
-- Interface utilisateur moderne et intuitive
-- Support multilingue (français par défaut)
-- Mode clair/sombre
-- Téléchargement de vidéos et d'audio
-- Génération de transcriptions
-- Tableau de bord avec statistiques
+### Authentification & Sécurité
+- Authentification sécurisée des utilisateurs (bcrypt)
+- Gestion des comptes utilisateurs (inscription, connexion, mot de passe oublié)
+- Option "Se souvenir de moi"
+- Interface moderne avec gestion du thème (clair/sombre)
+
+### Téléchargement de vidéos et audio
+- Prise en charge de YouTube, Vimeo, Dailymotion
+- Choix du format vidéo (mp4, webm, mkv)
+- Extraction audio (mp3, wav, m4a, ogg)
+- Sélection de la qualité (1080p, 720p, 480p, 360p)
+- Téléchargement de playlists
+- Gestion de la file d'attente et suivi de la progression
 - Historique des téléchargements
-- Gestion des utilisateurs
 
-## Prérequis
+### Tableau de bord et statistiques
+- Visualisation des statistiques de téléchargement
+- Historique avec recherche et filtres
+- Exportation des données (PDF, CSV)
 
-- Python 3.8 ou supérieur
-- MongoDB (exécuté localement sur le port 27017)
-- Connexion Internet
+### Profil utilisateur
+- Gestion du profil et des préférences
+- Paramètres de sécurité
+- Gestion des chemins de téléchargement
 
 ## Installation
 
 1. Clonez le dépôt :
 ```bash
-git clone [url-du-depot]
-cd [nom-du-dossier]
+git clone https://github.com/yourusername/youtube-downloader-pro.git
+cd youtube-downloader-pro
 ```
 
-2. Installez les dépendances :
+2. Créez un environnement virtuel :
+```bash
+python -m venv venv
+venv\Scripts\activate  # Sous Windows
+```
+
+3. Installez les dépendances :
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Assurez-vous que MongoDB est en cours d'exécution sur le port par défaut (27017)
+4. Configurez la base de données MongoDB (locale par défaut, modifiable dans le code).
 
-4. Lancez l'application :
+5. Vérifiez que FFmpeg est installé et accessible dans le PATH système.
+   - Téléchargez FFmpeg : https://ffmpeg.org/download.html
+   - Ajoutez le dossier \bin de FFmpeg à la variable d'environnement PATH.
+
+6. (Windows uniquement) Pour Pillow, installez Visual Studio Build Tools si nécessaire :
+   https://visualstudio.microsoft.com/visual-cpp-build-tools/
+
+7. Lancez l'application :
 ```bash
 python main.py
 ```
 
-## Utilisation
+L'interface graphique s'ouvrira automatiquement.
 
-1. Créez un compte ou connectez-vous
-2. Collez l'URL YouTube dans le champ prévu
-3. Sélectionnez le type de contenu (Vidéo, Audio, Transcription)
-4. Choisissez le format et la qualité souhaités
-5. Cliquez sur "Télécharger"
+## Configuration
 
-## Fonctionnalités détaillées
+La configuration s'effectue principalement dans le code source (main.py) et via les variables d'environnement :
+- Connexion MongoDB locale par défaut (modifiable dans main.py)
+- Dossiers de téléchargement créés automatiquement (./video, ./audio)
+- Thème et préférences utilisateur gérés dans l'interface
 
-### Types de contenu
-- **Vidéo** : MP4, WEBM, MKV, AVI
-- **Audio** : MP3, WAV, AAC, M4A, OPUS
-- **Transcription** : PDF, DOCX
+## Prérequis
 
-### Tableau de bord
-- Statistiques de téléchargement par jour
-- Répartition des types de contenu
-- Historique complet des téléchargements
+- Python 3.8 ou supérieur
+- MongoDB 4.4 ou supérieur (local ou distant)
+- FFmpeg (pour l'extraction audio)
+- Visual Studio Build Tools (Windows uniquement, pour Pillow)
+- Connexion Internet
 
-### Personnalisation
-- Basculement entre mode clair et sombre
-- Sélection du dossier de destination
-- Interface redimensionnable
+## Dépendances principales
+
+- customtkinter : Interface graphique moderne
+- pymongo : Connexion à MongoDB
+- bcrypt : Hachage des mots de passe
+- yt-dlp : Téléchargement de vidéos
+- Pillow : Gestion des images
+- requests : Requêtes HTTP
+- pandas : Manipulation de données
+- reportlab : Génération de PDF
+- matplotlib : Visualisation de données
+- ffmpeg-python : Intégration FFmpeg
 
 ## Sécurité
 
-- Authentification utilisateur
-- Mots de passe cryptés
-- Gestion des sessions
+- Les mots de passe sont hachés avec bcrypt
+- Les données utilisateurs sont stockées dans MongoDB
+- Les sessions sont sécurisées
+- Les chemins de téléchargement sont isolés par utilisateur
 
-## Support
+## Contribution
 
-Pour toute question ou problème, veuillez créer une issue dans le dépôt du projet.
+1. Forkez le dépôt
+2. Créez une branche pour votre fonctionnalité
+3. Commitez vos modifications
+4. Poussez la branche
+5. Ouvrez une Pull Request
 
 ## Licence
 
-Ce projet est sous licence MIT. Voir le fichier LICENSE pour plus de détails.
+Ce projet est sous licence MIT - voir le fichier LICENSE pour plus de détails.
+
+## Support
+
+Pour toute question ou problème, ouvrez une issue sur le dépôt GitHub ou contactez les mainteneurs.
+
+## Remerciements
+
+- Équipe yt-dlp pour la bibliothèque de téléchargement
+- Équipe CustomTkinter pour le framework GUI
+- Tous les contributeurs et utilisateurs du projet
